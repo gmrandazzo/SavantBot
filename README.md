@@ -89,7 +89,7 @@ Once running, access the interactive documentation at: `http://localhost:8124/do
 Place any text file containing facts, chat history, or documentation into the `data/` folder, or use the `upload` endpoint.
 
 ### Step 2: Set the Persona
-Use the `PUT /api/config` endpoint to tell the bot how to behave. 
+Use the `PUT /api/config` endpoint to tell the bot how to behave.
 *Example Persona*: "You are a professional chef. Use culinary terms and keep answers concise. Context: {context} Question: {question}"
 
 ### Step 3: Authorize Yourself
