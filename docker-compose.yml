@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   redis:
     image: redis/redis-stack:latest
     ports:
-      - "6389:6379"
-      - "8002:8001"
+      - "6390:6379"
+      - "8003:8001"
     volumes:
       - redis_data:/data
 
@@ -13,7 +11,7 @@ services:
     build: .
     command: savant-api
     ports:
-      - "8124:8124"
+      - "8125:8124"
     environment:
       - REDIS_URL=redis://redis:6379
     depends_on:

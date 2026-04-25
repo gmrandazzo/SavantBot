@@ -38,8 +38,8 @@ Copy `.env.example` to `.env` and fill in your details:
 ```bash
 cp .env.example .env
 ```
-- `TELEGRAM_TOKEN`: Your bot token from [@BotFather](https://t.me/botfather).
-- `ALLOWED_USER_IDS`: (Optional) A comma-separated list of IDs to "seed" the bot on its first run.
+- **`TELEGRAM_TOKEN`**: Your bot token from [@BotFather](https://t.me/botfather).
+- **`ALLOWED_USER_IDS`**: (Optional) A comma-separated list of IDs to "seed" the bot on its first run.
 
 ### 4. Run with Docker Compose (Recommended)
 ```bash

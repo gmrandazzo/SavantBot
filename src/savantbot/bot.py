@@ -18,7 +18,6 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-API_KEY = os.getenv("SAVANT_API_KEY")
 API_BASE_URL = os.getenv("API_URL", "http://0.0.0.0:8124")
 
 # Ensure API_URL doesn't end with /chat for auth calls
@@ -33,9 +32,6 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-# Headers for API requests
-HEADERS = {"X-API-Key": API_KEY} if API_KEY else {}
 
 
 def clean_response(text: str) -> str:
@@ -53,7 +49,7 @@ async def is_authorized(update: Update) -> bool:
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(f"{AUTH_API_URL}/{user.id}", headers=HEADERS)
+            response = await client.get(f"{AUTH_API_URL}/{user.id}")
             if response.status_code == 200:
                 return bool(response.json().get("allowed", False))
             else:
@@ -119,7 +115,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
-                CHAT_API_URL, json={"message": user_text}, headers=HEADERS
+                CHAT_API_URL, json={"message": user_text}
             )
 
             if response.status_code == 200:

@@ -5,8 +5,7 @@ import shutil
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import Depends, FastAPI, File, HTTPException, Security, UploadFile
-from fastapi.security import APIKeyHeader
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from langchain_community.chat_models import ChatOllama
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_core.documents import Document
@@ -27,28 +26,10 @@ logger = logging.getLogger(__name__)
 
 CONFIG_PATH = "config.json"
 DATA_DIR = "data"
-API_KEY_NAME = "X-API-Key"
-api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
-
 # Global state
 config = {}
 retriever = None
 vectorstore = None
-
-
-async def get_api_key(api_key: str = Security(api_key_header)):
-    """Validates the API Key from the header."""
-    expected_key = os.getenv("SAVANT_API_KEY")
-    if not expected_key:
-        logger.warning(
-            "SAVANT_API_KEY not set in environment. Skipping API Key validation."
-        )
-        return api_key
-
-    if api_key == expected_key:
-        return api_key
-
-    raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 
 def load_config():
@@ -181,12 +162,12 @@ class TextAppendRequest(BaseModel):
 
 
 # API Endpoints
-@app.get("/api/config", dependencies=[Depends(get_api_key)])
+@app.get("/api/config")
 async def get_config():
     return config
 
 
-@app.put("/api/config", dependencies=[Depends(get_api_key)])
+@app.put("/api/config")
 async def update_config(update: ConfigUpdate):
     if update.rag_template is not None:
         config["rag_template"] = update.rag_template
@@ -197,19 +178,19 @@ async def update_config(update: ConfigUpdate):
 
 
 # User Management Endpoints
-@app.get("/api/auth/{user_id}", dependencies=[Depends(get_api_key)])
+@app.get("/api/auth/{user_id}")
 async def check_auth(user_id: int):
     # If list is empty, we consider it open (or you can change this to closed by default)
     is_allowed = not config["allowed_user_ids"] or user_id in config["allowed_user_ids"]
     return {"allowed": is_allowed}
 
 
-@app.get("/api/users", dependencies=[Depends(get_api_key)])
+@app.get("/api/users")
 async def list_users():
     return {"allowed_user_ids": config["allowed_user_ids"]}
 
 
-@app.post("/api/users", dependencies=[Depends(get_api_key)])
+@app.post("/api/users")
 async def add_user(user: UserUpdate):
     if user.user_id not in config["allowed_user_ids"]:
         config["allowed_user_ids"].append(user.user_id)
@@ -220,7 +201,7 @@ async def add_user(user: UserUpdate):
     }
 
 
-@app.delete("/api/users/{user_id}", dependencies=[Depends(get_api_key)])
+@app.delete("/api/users/{user_id}")
 async def remove_user(user_id: int):
     if user_id in config["allowed_user_ids"]:
         config["allowed_user_ids"].remove(user_id)
@@ -229,7 +210,7 @@ async def remove_user(user_id: int):
 
 
 # Data Endpoints
-@app.post("/api/data/upload", dependencies=[Depends(get_api_key)])
+@app.post("/api/data/upload")
 async def upload_file(file: UploadFile = File(...)):
     if not file.filename or not file.filename.endswith(".txt"):
         raise HTTPException(status_code=400, detail="Only .txt files are supported")
@@ -254,7 +235,7 @@ async def upload_file(file: UploadFile = File(...)):
     return {"message": f"File {safe_filename} uploaded and indexed successfully"}
 
 
-@app.post("/api/data/text", dependencies=[Depends(get_api_key)])
+@app.post("/api/data/text")
 async def append_text(request: TextAppendRequest):
     # Path Traversal Prevention: Sanitize filename
     safe_filename = os.path.basename(request.filename)
@@ -275,13 +256,13 @@ async def append_text(request: TextAppendRequest):
     return {"message": "Text appended and indexed successfully"}
 
 
-@app.post("/api/data/rebuild", dependencies=[Depends(get_api_key)])
+@app.post("/api/data/rebuild")
 async def rebuild_db():
     setup_vector_db(rebuild=True)
     return {"message": "Database rebuild complete"}
 
 
-@app.post("/chat", response_model=QueryResponse, dependencies=[Depends(get_api_key)])
+@app.post("/chat", response_model=QueryResponse)
 async def chat_endpoint(request: QueryRequest):
     if not retriever:
         raise HTTPException(status_code=500, detail="Retriever not initialized")

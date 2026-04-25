@@ -25,7 +25,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 from savantbot.api import CONFIG_PATH, DATA_DIR, app, config  # noqa: E402
 
 client = TestClient(app)
-API_KEY = "test-secret-key"
 
 
 @pytest.fixture(autouse=True)
@@ -51,9 +50,6 @@ def setup_teardown():
         }
     )
 
-    # Set API Key for testing
-    os.environ["SAVANT_API_KEY"] = API_KEY
-
     yield
 
     # Teardown
@@ -63,29 +59,12 @@ def setup_teardown():
         os.remove(CONFIG_PATH)
 
 
-def test_auth_missing_key():
-    response = client.get("/api/config")
-    assert response.status_code == 403
-
-
-def test_auth_wrong_key():
-    response = client.get("/api/config", headers={"X-API-Key": "wrong-key"})
-    assert response.status_code == 403
-
-
-def test_auth_success():
-    response = client.get("/api/config", headers={"X-API-Key": API_KEY})
-    assert response.status_code == 200
-
-
 def test_path_traversal_upload_prevention():
     traversal_filename = "../traversed.txt"
     files = {"file": (traversal_filename, "content", "text/plain")}
 
     with patch("savantbot.api.setup_vector_db"):
-        response = client.post(
-            "/api/data/upload", files=files, headers={"X-API-Key": API_KEY}
-        )
+        response = client.post("/api/data/upload", files=files)
 
     assert response.status_code == 200
     assert os.path.exists(os.path.join(DATA_DIR, "traversed.txt"))
@@ -97,9 +76,7 @@ def test_path_traversal_append_prevention():
     payload = {"text": "some text", "filename": traversal_filename}
 
     with patch("savantbot.api.setup_vector_db"):
-        response = client.post(
-            "/api/data/text", json=payload, headers={"X-API-Key": API_KEY}
-        )
+        response = client.post("/api/data/text", json=payload)
 
     assert response.status_code == 200
     assert os.path.exists(os.path.join(DATA_DIR, "evil.txt"))
@@ -108,17 +85,15 @@ def test_path_traversal_append_prevention():
 
 def test_user_management():
     # Add user
-    response = client.post(
-        "/api/users", json={"user_id": 12345}, headers={"X-API-Key": API_KEY}
-    )
+    response = client.post("/api/users", json={"user_id": 12345})
     assert response.status_code == 200
     assert 12345 in response.json()["users"]
 
     # Check auth
-    response = client.get("/api/auth/12345", headers={"X-API-Key": API_KEY})
+    response = client.get("/api/auth/12345")
     assert response.json()["allowed"] is True
 
     # Remove user
-    response = client.delete("/api/users/12345", headers={"X-API-Key": API_KEY})
+    response = client.delete("/api/users/12345")
     assert response.status_code == 200
     assert 12345 not in response.json()["users"]
