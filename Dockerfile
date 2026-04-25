@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Install the package and its dependencies
-RUN pip install --no-cache-dir .
+# Install the package in editable mode
+RUN pip install -e .
 
 # Create data directory
 RUN mkdir -p data

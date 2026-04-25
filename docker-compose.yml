@@ -28,6 +28,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./config.json:/app/config.json
+      - ./src:/app/src
 
   bot:
     build: .
@@ -40,6 +41,7 @@ services:
       - api
     volumes:
       - ./data:/app/data
+      - ./src:/app/src
 
 volumes:
   redis_data:
