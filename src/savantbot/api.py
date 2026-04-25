@@ -182,12 +182,12 @@ class TextAppendRequest(BaseModel):
 
 
 # API Endpoints
-@app.get("/api/config")
+@app.get("/api/config", tags=["Configuration"])
 async def get_config():
     return config
 
 
-@app.put("/api/config")
+@app.put("/api/config", tags=["Configuration"])
 async def update_config(update: ConfigUpdate):
     if update.rag_template is not None:
         config["rag_template"] = update.rag_template
@@ -198,19 +198,19 @@ async def update_config(update: ConfigUpdate):
 
 
 # User Management Endpoints
-@app.get("/api/auth/{user_id}")
+@app.get("/api/auth/{user_id}", tags=["User Management"])
 async def check_auth(user_id: int):
     # If list is empty, we consider it open (or you can change this to closed by default)
     is_allowed = not config["allowed_user_ids"] or user_id in config["allowed_user_ids"]
     return {"allowed": is_allowed}
 
 
-@app.get("/api/users")
+@app.get("/api/users", tags=["User Management"])
 async def list_users():
     return {"allowed_user_ids": config["allowed_user_ids"]}
 
 
-@app.post("/api/users")
+@app.post("/api/users", tags=["User Management"])
 async def add_user(user: UserUpdate):
     if user.user_id not in config["allowed_user_ids"]:
         config["allowed_user_ids"].append(user.user_id)
@@ -221,7 +221,7 @@ async def add_user(user: UserUpdate):
     }
 
 
-@app.delete("/api/users/{user_id}")
+@app.delete("/api/users/{user_id}", tags=["User Management"])
 async def remove_user(user_id: int):
     if user_id in config["allowed_user_ids"]:
         config["allowed_user_ids"].remove(user_id)
@@ -230,7 +230,7 @@ async def remove_user(user_id: int):
 
 
 # Data Endpoints
-@app.post("/api/data/upload")
+@app.post("/api/data/upload", tags=["Data & Knowledge"])
 async def upload_file(file: UploadFile = File(...)):
     if not file.filename or not file.filename.endswith(".txt"):
         raise HTTPException(status_code=400, detail="Only .txt files are supported")
@@ -255,7 +255,7 @@ async def upload_file(file: UploadFile = File(...)):
     return {"message": f"File {safe_filename} uploaded and indexed successfully"}
 
 
-@app.post("/api/data/text")
+@app.post("/api/data/text", tags=["Data & Knowledge"])
 async def append_text(request: TextAppendRequest):
     # Path Traversal Prevention: Sanitize filename
     safe_filename = os.path.basename(request.filename)
@@ -276,13 +276,13 @@ async def append_text(request: TextAppendRequest):
     return {"message": "Text appended and indexed successfully"}
 
 
-@app.post("/api/data/rebuild")
+@app.post("/api/data/rebuild", tags=["Data & Knowledge"])
 async def rebuild_db():
     setup_vector_db(rebuild=True)
     return {"message": "Database rebuild complete"}
 
 
-@app.post("/chat", response_model=QueryResponse)
+@app.post("/chat", response_model=QueryResponse, tags=["Chat"])
 async def chat_endpoint(request: QueryRequest):
     if not retriever:
         raise HTTPException(status_code=500, detail="Retriever not initialized")
