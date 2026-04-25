@@ -88,6 +88,7 @@ def setup_vector_db(rebuild=False):
 
     os.makedirs(DATA_DIR, exist_ok=True)
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    logger.info(f"Connecting to Ollama at: {ollama_base_url}")
     embeddings = OllamaEmbeddings(
         model=config["embedding_model"], base_url=ollama_base_url
     )
