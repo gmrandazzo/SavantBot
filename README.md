@@ -49,12 +49,23 @@ docker-compose up --build
 ---
 
 ## 🚦 Understanding Authentication (The "Bootstrap" Logic)
-
-SavantBot uses a **fail-safe bootstrap process** for authorization:
-1. **First Launch**: The API checks if `config.json` exists. If not, it imports IDs from your `.env` file into its persistent database.
-2. **Persistence**: Once initialized, the API ignores the `.env` IDs and uses `config.json`.
-3. **Open Mode**: If the allowed user list is **empty**, the bot is "Open" to everyone so you don't get locked out.
+...
 4. **Whitelisted Mode**: As soon as **one or more IDs** are added, the bot becomes "Private," and only those IDs can interact with it.
+
+---
+
+## ⚙️ Configuration File (`config.json`)
+
+SavantBot uses a `config.json` file for persistent settings. If it doesn't exist, it is created automatically on the first run.
+
+| Field | Description |
+| :--- | :--- |
+| `rag_template` | The prompt used by the AI. Must include `{context}` and `{question}` placeholders. |
+| `embedding_model` | The Ollama model used to turn text into vectors (default: `bge-m3`). |
+| `default_chat_model` | The default Ollama model for generating responses (default: `qwen2.5:latest`). |
+| `redis_url` | The connection string for the Redis Vector Database. |
+| `index_name` | The internal name of the search index inside Redis. |
+| `allowed_user_ids` | A JSON list of numeric Telegram User IDs authorized to use the bot. |
 
 ---
 
