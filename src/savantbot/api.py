@@ -88,7 +88,8 @@ def setup_vector_db(rebuild=False):
 
     os.makedirs(DATA_DIR, exist_ok=True)
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    logger.info(f"Connecting to Ollama at: {ollama_base_url}")
+    logger.info(f"Target Ollama URL: {ollama_base_url}")
+    
     embeddings = OllamaEmbeddings(
         model=config["embedding_model"], base_url=ollama_base_url
     )
@@ -98,8 +99,9 @@ def setup_vector_db(rebuild=False):
             r = Redis.from_url(config["redis_url"])
             try:
                 r.ft(config["index_name"]).dropindex(delete_documents=True)
-            except Exception:
-                pass
+                logger.info("Redis index dropped successfully")
+            except Exception as e:
+                logger.info(f"Index drop skipped or failed: {e}")
         except Exception as e:
             logger.error(f"Could not connect to Redis: {e}")
 
@@ -109,25 +111,39 @@ def setup_vector_db(rebuild=False):
         loader_cls=TextLoader,
         loader_kwargs={"encoding": "utf-8"},
     )
-    docs = loader.load()
+    
+    try:
+        docs = loader.load()
+        logger.info(f"Loaded {len(docs)} documents from {DATA_DIR}")
+    except Exception as e:
+        logger.warning(f"Error loading documents: {e}")
+        docs = []
 
-    if docs:
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        splits = text_splitter.split_documents(docs)
-        vectorstore = RedisVectorStore.from_documents(
-            documents=splits,
-            embedding=embeddings,
-            redis_url=config["redis_url"],
-            index_name=config["index_name"],
-        )
-    else:
-        vectorstore = RedisVectorStore(
-            embeddings=embeddings,
-            redis_url=config["redis_url"],
-            index_name=config["index_name"],
-        )
+    try:
+        if docs:
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            splits = text_splitter.split_documents(docs)
+            logger.info(f"Split into {len(splits)} chunks")
+            vectorstore = RedisVectorStore.from_documents(
+                documents=splits,
+                embedding=embeddings,
+                redis_url=config["redis_url"],
+                index_name=config["index_name"],
+            )
+        else:
+            logger.info("No documents found. Initializing empty vector store.")
+            vectorstore = RedisVectorStore(
+                embeddings=embeddings,
+                redis_url=config["redis_url"],
+                index_name=config["index_name"],
+            )
+    except Exception as e:
+        logger.error(f"CRITICAL: Failed to initialize RedisVectorStore: {e}")
+        # We don't raise here to allow API to at least start, but chat will fail
+        return
 
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+    logger.info("Vector DB setup complete")
 
 
 @asynccontextmanager
