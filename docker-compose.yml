@@ -14,10 +14,13 @@ services:
       - "8125:8124"
     environment:
       - REDIS_URL=redis://redis:6379
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
     depends_on:
       - redis
     volumes:
       - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   bot:
     build: .

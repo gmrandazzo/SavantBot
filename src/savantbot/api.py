@@ -87,7 +87,10 @@ def setup_vector_db(rebuild=False):
     logger.info(f"Setting up Redis Vector Store (rebuild={rebuild})")
 
     os.makedirs(DATA_DIR, exist_ok=True)
-    embeddings = OllamaEmbeddings(model=config["embedding_model"])
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    embeddings = OllamaEmbeddings(
+        model=config["embedding_model"], base_url=ollama_base_url
+    )
 
     if rebuild:
         try:
@@ -269,7 +272,8 @@ async def chat_endpoint(request: QueryRequest):
 
     model = request.model or config.get("default_chat_model", "qwen2.5:latest")
     prompt = ChatPromptTemplate.from_template(config["rag_template"])
-    llm = ChatOllama(model=model)
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    llm = ChatOllama(model=model, base_url=ollama_base_url)
 
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
