@@ -7,6 +7,13 @@ services:
     volumes:
       - redis_data:/data
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   api:
     build: .
     command: savant-api
@@ -14,14 +21,13 @@ services:
       - "8125:8124"
     environment:
       - REDIS_URL=redis://redis:6379
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
       - redis
+      - ollama
     volumes:
       - ./data:/app/data
       - ./config.json:/app/config.json
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   bot:
     build: .
@@ -37,3 +43,4 @@ services:
 
 volumes:
   redis_data:
+  ollama_data:
