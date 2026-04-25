@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "6389:6379"
+      - "8002:8001"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    command: savant-api
+    ports:
+      - "8124:8124"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./data:/app/data
+      - ./config.json:/app/config.json
+
+  bot:
+    build: .
+    command: savant-bot
+    env_file:
+      - .env
+    environment:
+      - API_URL=http://api:8124/chat
+    depends_on:
+      - api
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  redis_data:

@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "savantbot"
+version = "0.1.0"
+description = "A general RAG product with FastAPI and Telegram integration"
+authors = [
+    {name = "Giuseppe Marco Randazzo", email = "gmrandazzo@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "langchain",
+    "langchain-community",
+    "langchain-core",
+    "langchain-redis",
+    "langchain-ollama",
+    "redis",
+    "python-multipart",
+    "httpx",
+    "python-telegram-bot",
+    "python-dotenv"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "mypy",
+    "pytest",
+    "pytest-asyncio"
+]
+
+[project.scripts]
+savant-api = "savantbot.api:main"
+savant-bot = "savantbot.bot:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
