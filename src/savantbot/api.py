@@ -149,7 +149,8 @@ def setup_vector_db(rebuild=False):
                     f"Could not check Ollama models. Status: {response.status_code}"
                 )
     except Exception as e:
-        logger.warning(f"Failed to connect to Ollama to check models: {e}")
+        logger.warning(f"Failed to connect to Ollama at {ollama_base_url}: {e}")
+        logger.info("Check if Ollama is running and OLLAMA_HOST is set to 0.0.0.0")
 
     if missing_models:
         if not is_pulling_models:

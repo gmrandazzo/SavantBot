@@ -59,7 +59,13 @@ Use this to run a dedicated Ollama instance inside a Docker container.
 ```bash
 docker-compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
 ```
-> **Note**: On the first run, SavantBot will detect if the required models are missing and pull them automatically.
+
+#### Option C: Linux Host Networking (Best for Linux + Host Ollama)
+If you are on Linux and Ollama is running on your host, use this mode to bypass Docker bridge networking issues.
+```bash
+docker-compose -f docker-compose.linux-host.yml up --build
+```
+- In this mode, set `OLLAMA_BASE_URL=http://localhost:11434` in your `.env`.
 
 ---
 
