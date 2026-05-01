@@ -8,6 +8,7 @@ from typing import Optional
 
 import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import RedirectResponse
 from langchain_community.chat_models import ChatOllama
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_core.documents import Document
@@ -226,6 +227,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SavantBot API", lifespan=lifespan)
 
 
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
+
+
 # Pydantic Models
 class QueryRequest(BaseModel):
     message: str
@@ -249,6 +255,10 @@ class UserUpdate(BaseModel):
 class TextAppendRequest(BaseModel):
     text: str
     filename: str = "messages.txt"
+
+
+class ModelActionRequest(BaseModel):
+    model_name: str
 
 
 # API Endpoints
@@ -297,6 +307,69 @@ async def remove_user(user_id: int):
         config["allowed_user_ids"].remove(user_id)
         save_config()
     return {"message": f"User {user_id} removed", "users": config["allowed_user_ids"]}
+
+
+# Health Endpoints
+@app.get("/api/health/vectorstore", tags=["Health"])
+async def vectorstore_health():
+    if not vectorstore:
+        return {
+            "status": "uninitialized",
+            "records": 0,
+            "message": "Vector store not yet initialized",
+        }
+
+    try:
+        r = Redis.from_url(config["redis_url"])
+        info = r.ft(config["index_name"]).info()
+        num_docs = int(info.get("num_docs", 0))
+        return {
+            "status": "ready",
+            "records": num_docs,
+            "index_name": config["index_name"],
+            "embedding_model": config["embedding_model"],
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "records": 0}
+
+
+# Ollama Management
+@app.get("/api/ollama/models", tags=["Ollama Management"])
+async def list_ollama_models():
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{ollama_base_url}/api/tags")
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ollama Error: {str(e)}")
+
+
+@app.post("/api/ollama/pull", tags=["Ollama Management"])
+async def pull_ollama_model(request: ModelActionRequest):
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    # We use a background thread for pulling to avoid blocking the API
+    pull_models_background([request.model_name], ollama_base_url)
+    return {
+        "message": f"Started pulling model '{request.model_name}' in the background."
+    }
+
+
+@app.delete("/api/ollama/models/{model_name}", tags=["Ollama Management"])
+async def delete_ollama_model(model_name: str):
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    try:
+        async with httpx.AsyncClient() as client:
+            # Note: Ollama expects DELETE /api/delete with a JSON body
+            response = await client.request(
+                "DELETE", f"{ollama_base_url}/api/delete", json={"name": model_name}
+            )
+            if response.status_code == 200:
+                return {"message": f"Model '{model_name}' deleted successfully."}
+            else:
+                return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ollama Error: {str(e)}")
 
 
 # Data Endpoints

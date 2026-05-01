@@ -89,6 +89,15 @@ Once running, access the interactive documentation at: `http://localhost:8124/do
 - **`DELETE /api/users/{user_id}`**: Revoke a user's access immediately.
 - **`GET /api/auth/{user_id}`**: Used by the bot to check if a specific ID is allowed.
 
+### 🦙 Ollama Management
+- **`GET /api/ollama/models`**: List all models currently available in Ollama.
+- **`POST /api/ollama/pull`**: Download a new model to Ollama in the background.
+    - *Payload*: `{"model_name": "llama3"}`
+- **`DELETE /api/ollama/models/{model_name}`**: Remove a model from Ollama.
+
+### 🏥 Health & Monitoring
+- **`GET /api/health/vectorstore`**: Check the status of the Redis vector index and see the number of indexed records.
+
 ### 📂 Data & Knowledge Management
 - **`POST /api/data/upload`**: Upload a `.txt` file (Multipart/form-data). It is saved to `data/` and indexed.
 - **`POST /api/data/text`**: Append a snippet of text to a file (default `messages.txt`) and index it.
