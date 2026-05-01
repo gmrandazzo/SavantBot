@@ -2,9 +2,11 @@ import json
 import logging
 import os
 import shutil
+import threading
 from contextlib import asynccontextmanager
 from typing import Optional
 
+import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from langchain_community.chat_models import ChatOllama
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
@@ -81,15 +83,83 @@ def save_config():
         json.dump(config, f, indent=2)
 
 
+is_pulling_models = False
+
+
+def pull_models_background(model_names: list[str], ollama_base_url: str):
+    """Pulls missing Ollama models in a background thread."""
+    global is_pulling_models
+
+    def _pull():
+        global is_pulling_models
+        try:
+            for model in model_names:
+                logger.info(f"Attempting to pull model '{model}' from Ollama...")
+                with httpx.Client(timeout=None) as client:
+                    response = client.post(
+                        f"{ollama_base_url}/api/pull",
+                        json={"model": model, "stream": False},
+                    )
+                    if response.status_code == 200:
+                        logger.info(f"Successfully pulled model '{model}'.")
+                    else:
+                        logger.error(
+                            f"Failed to pull model '{model}'. Status: {response.status_code}"
+                        )
+
+            logger.info("All missing models pulled. Initializing vector store...")
+            setup_vector_db()
+        except Exception as e:
+            logger.error(f"Error while pulling models: {e}")
+        finally:
+            is_pulling_models = False
+
+    threading.Thread(target=_pull, daemon=True).start()
+
+
 def setup_vector_db(rebuild=False):
     """Initializes or rebuilds the Redis vector database."""
-    global retriever, vectorstore
+    global retriever, vectorstore, is_pulling_models
     logger.info(f"Setting up Redis Vector Store (rebuild={rebuild})")
 
     os.makedirs(DATA_DIR, exist_ok=True)
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     logger.info(f"Target Ollama URL: {ollama_base_url}")
-    
+
+    # Check model availability
+    required_models = [config["embedding_model"], config["default_chat_model"]]
+    missing_models = []
+    try:
+        with httpx.Client() as client:
+            response = client.get(f"{ollama_base_url}/api/tags")
+            if response.status_code == 200:
+                available_models = [
+                    m["name"] for m in response.json().get("models", [])
+                ]
+                for model in required_models:
+                    if (
+                        model not in available_models
+                        and f"{model}:latest" not in available_models
+                    ):
+                        missing_models.append(model)
+            else:
+                logger.warning(
+                    f"Could not check Ollama models. Status: {response.status_code}"
+                )
+    except Exception as e:
+        logger.warning(f"Failed to connect to Ollama to check models: {e}")
+
+    if missing_models:
+        if not is_pulling_models:
+            is_pulling_models = True
+            pull_models_background(missing_models, ollama_base_url)
+
+        if config["embedding_model"] in missing_models:
+            logger.info(
+                f"Embedding model '{config['embedding_model']}' is missing. Deferring vector store setup."
+            )
+            return
+
     embeddings = OllamaEmbeddings(
         model=config["embedding_model"], base_url=ollama_base_url
     )

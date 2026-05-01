@@ -45,6 +45,8 @@ cp .env.example .env
 ```bash
 docker-compose up --build
 ```
+> **Note**: On the first run, SavantBot will detect if the required Ollama models are missing and automatically attempt to pull them in the background. The vector database initialization will be deferred until the models are ready.
+
 > **Note for Linux users**: If Ollama is running on your host machine, you may need to set the environment variable `OLLAMA_HOST=0.0.0.0` on your host to allow the Docker container to connect to it.
 
 ---
