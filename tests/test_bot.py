@@ -7,6 +7,7 @@ import pytest
 sys.modules["telegram"] = MagicMock()
 sys.modules["telegram.ext"] = MagicMock()
 sys.modules["telegram.constants"] = MagicMock()
+sys.modules["telegram.error"] = MagicMock()
 
 from savantbot.bot import clean_response, handle_message, is_authorized  # noqa: E402
 
@@ -48,22 +49,37 @@ async def test_is_authorized_denied(mock_get):
 
 @pytest.mark.asyncio
 @patch("savantbot.bot.is_authorized", return_value=True)
-@patch("httpx.AsyncClient.post")
-async def test_handle_message_flow(mock_post, mock_auth):
-    # Mock API response
-    mock_post.return_value = MagicMock(status_code=200)
-    mock_post.return_value.json.return_value = {"response": "Hi!"}
+@patch("httpx.AsyncClient.stream")
+async def test_handle_message_flow(mock_stream, mock_auth):
+    # Mock streaming response
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    
+    async def mock_aiter_text():
+        yield "Hi"
+        yield "!"
+
+    mock_response.aiter_text = mock_aiter_text
+    
+    # Mock context manager
+    mock_stream.return_value.__aenter__.return_value = mock_response
 
     update = MagicMock()
     update.message.text = "Hello"
     update.message.chat.type = "private"
     update.message.chat.id = 123
-    update.message.reply_text = AsyncMock()  # Must be AsyncMock
+    
+    # reply_text returns a Message object that has edit_text
+    placeholder_message = AsyncMock()
+    update.message.reply_text = AsyncMock(return_value=placeholder_message)
 
     context = MagicMock()
-    context.bot.send_chat_action = AsyncMock()  # Must be AsyncMock
+    context.bot.send_chat_action = AsyncMock()
 
     await handle_message(update, context)
 
-    # Verify the bot replied
-    update.message.reply_text.assert_called_with("Hi!")
+    # Verify the initial reply
+    update.message.reply_text.assert_called_with("Thinking...")
+    
+    # Verify the final edit
+    placeholder_message.edit_text.assert_called_with("Hi!")

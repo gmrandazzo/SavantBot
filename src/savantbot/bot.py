@@ -1,10 +1,13 @@
+import asyncio
 import logging
 import os
 import re
+import time
 
 import httpx
 from dotenv import load_dotenv
 from telegram import Update, constants
+from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -24,7 +27,7 @@ API_BASE_URL = os.getenv("API_URL", "http://0.0.0.0:8124")
 if API_BASE_URL.endswith("/chat"):
     API_BASE_URL = API_BASE_URL[:-5]
 
-CHAT_API_URL = f"{API_BASE_URL}/chat"
+CHAT_API_URL = f"{API_BASE_URL}/chat/stream"
 AUTH_API_URL = f"{API_BASE_URL}/api/auth"
 
 # Logging
@@ -112,25 +115,49 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=message.chat.id, action=constants.ChatAction.TYPING
     )
 
+    # Send initial "Thinking..." message
+    placeholder_message = await message.reply_text("Thinking...")
+    full_response = ""
+    last_update_time = time.time()
+    update_interval = 1.5  # Seconds between edits to avoid rate limits
+
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                CHAT_API_URL, json={"message": user_text}
-            )
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST", CHAT_API_URL, json={"message": user_text}
+            ) as response:
+                if response.status_code != 200:
+                    logger.error(f"API Error: {response.status_code}")
+                    await placeholder_message.edit_text(
+                        "⚠️ Backend error. Please try again later."
+                    )
+                    return
 
-            if response.status_code == 200:
-                raw_reply = response.json().get("response", "...")
-                final_reply = clean_response(raw_reply) or "..."
-                await message.reply_text(final_reply)
-            else:
-                logger.error(f"API Error: {response.status_code}")
-                await message.reply_text("⚠️ Backend error. Please try again later.")
+                async for chunk in response.aiter_text():
+                    full_response += chunk
+                    
+                    # Periodic update to Telegram
+                    if time.time() - last_update_time > update_interval:
+                        display_text = clean_response(full_response)
+                        if display_text:
+                            try:
+                                await placeholder_message.edit_text(display_text + "...")
+                                last_update_time = time.time()
+                            except BadRequest as e:
+                                if "Message is not modified" not in str(e):
+                                    logger.error(f"Telegram error during stream: {e}")
 
-    except httpx.ReadTimeout:
-        await message.reply_text("⌛ Response timed out. The model is taking too long.")
+                # Final update
+                final_text = clean_response(full_response) or "..."
+                try:
+                    await placeholder_message.edit_text(final_text)
+                except BadRequest as e:
+                    if "Message is not modified" not in str(e):
+                        logger.error(f"Final Telegram error: {e}")
+
     except Exception as e:
         logger.error(f"Connection error: {e}")
-        await message.reply_text("🔌 Cannot connect to the backend server.")
+        await placeholder_message.edit_text("🔌 Cannot connect to the backend server.")
 
 
 def main():

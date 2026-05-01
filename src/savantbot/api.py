@@ -8,7 +8,7 @@ from typing import Optional
 
 import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from langchain_community.chat_models import ChatOllama
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_core.documents import Document
@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-CONFIG_PATH = "config.json"
+CONFIG_PATH = os.path.join("data", "config.json")
 DATA_DIR = "data"
 # Global state
 config = {}
@@ -38,6 +38,7 @@ vectorstore = None
 def load_config():
     """Loads or initializes the RAG configuration."""
     global config
+    os.makedirs(DATA_DIR, exist_ok=True)
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, "r") as f:
@@ -423,6 +424,36 @@ async def append_text(request: TextAppendRequest):
 async def rebuild_db():
     setup_vector_db(rebuild=True)
     return {"message": "Database rebuild complete"}
+
+
+@app.post("/chat/stream", tags=["Chat"])
+async def chat_stream_endpoint(request: QueryRequest):
+    if not retriever:
+        raise HTTPException(status_code=500, detail="Retriever not initialized")
+
+    model = request.model or config.get("default_chat_model", "qwen2.5:latest")
+    prompt = ChatPromptTemplate.from_template(config["rag_template"])
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    llm = ChatOllama(model=model, base_url=ollama_base_url)
+
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+
+    from langchain_core.runnables import Runnable
+
+    rag_chain: Runnable = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+    async def event_generator():
+        safe_message = f"<user_input>\n{request.message}\n</user_input>"
+        async for chunk in rag_chain.astream(safe_message):
+            yield chunk
+
+    return StreamingResponse(event_generator(), media_type="text/plain")
 
 
 @app.post("/chat", response_model=QueryResponse, tags=["Chat"])
