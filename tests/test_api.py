@@ -45,6 +45,7 @@ def setup_teardown():
             "embedding_model": "bge-m3",
             "default_chat_model": "qwen2.5:latest",
             "redis_url": "redis://localhost:6389",
+            "ollama_base_url": "http://localhost:11434",
             "index_name": "savant-embeddings",
             "allowed_user_ids": [],
         }

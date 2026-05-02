@@ -17,9 +17,16 @@ sys.modules["langchain_core.runnables"] = MagicMock()
 sys.modules["langchain_core.output_parsers"] = MagicMock()
 sys.modules["redis"] = MagicMock()
 
-from savantbot.api import app  # noqa: E402
+import pytest
+from savantbot.api import app, config  # noqa: E402
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def setup_config():
+    config.update({"ollama_base_url": "http://localhost:11434"})
+    yield
 
 
 @patch("httpx.AsyncClient.get")

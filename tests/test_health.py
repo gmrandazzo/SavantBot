@@ -41,6 +41,7 @@ def test_vectorstore_health_ready(mock_redis_from_url):
             "redis_url": "redis://localhost:6389",
             "index_name": "savant-embeddings",
             "embedding_model": "bge-m3",
+            "ollama_base_url": "http://localhost:11434",
         }
     )
 

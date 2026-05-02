@@ -50,6 +50,12 @@ def load_config():
     else:
         init_defaults()
 
+    # Environment Overrides (Prioritize environment variables over config.json)
+    if os.getenv("REDIS_URL"):
+        config["redis_url"] = os.getenv("REDIS_URL")
+    if os.getenv("OLLAMA_BASE_URL"):
+        config["ollama_base_url"] = os.getenv("OLLAMA_BASE_URL")
+    
     # Ensure allowed_user_ids exists
     if "allowed_user_ids" not in config:
         # Bootstrap from env if available
@@ -73,6 +79,7 @@ def init_defaults():
         "embedding_model": "bge-m3",
         "default_chat_model": "qwen2.5:latest",
         "redis_url": os.getenv("REDIS_URL", "redis://localhost:6389"),
+        "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         "index_name": "savant-embeddings",
         "allowed_user_ids": [],
     }
@@ -125,7 +132,7 @@ def setup_vector_db(rebuild=False):
     logger.info(f"Setting up Redis Vector Store (rebuild={rebuild})")
 
     os.makedirs(DATA_DIR, exist_ok=True)
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_base_url = config["ollama_base_url"]
     logger.info(f"Target Ollama URL: {ollama_base_url}")
 
     # Check model availability
@@ -362,7 +369,7 @@ async def vectorstore_health():
 # Ollama Management
 @app.get("/api/ollama/models", tags=["Ollama Management"])
 async def list_ollama_models():
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_base_url = config["ollama_base_url"]
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{ollama_base_url}/api/tags")
@@ -373,7 +380,7 @@ async def list_ollama_models():
 
 @app.post("/api/ollama/pull", tags=["Ollama Management"])
 async def pull_ollama_model(request: ModelActionRequest):
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_base_url = config["ollama_base_url"]
     # We use a background thread for pulling to avoid blocking the API
     pull_models_background([request.model_name], ollama_base_url)
     return {
@@ -383,7 +390,7 @@ async def pull_ollama_model(request: ModelActionRequest):
 
 @app.delete("/api/ollama/models/{model_name}", tags=["Ollama Management"])
 async def delete_ollama_model(model_name: str):
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_base_url = config["ollama_base_url"]
     try:
         async with httpx.AsyncClient() as client:
             # Note: Ollama expects DELETE /api/delete with a JSON body
@@ -458,7 +465,7 @@ async def chat_stream_endpoint(request: QueryRequest):
 
     model = request.model or config.get("default_chat_model", "qwen2.5:latest")
     prompt = ChatPromptTemplate.from_template(config["rag_template"])
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_base_url = config["ollama_base_url"]
     llm = ChatOllama(model=model, base_url=ollama_base_url)
 
     def format_docs(docs):
@@ -506,7 +513,7 @@ async def chat_endpoint(request: QueryRequest):
 
     model = request.model or config.get("default_chat_model", "qwen2.5:latest")
     prompt = ChatPromptTemplate.from_template(config["rag_template"])
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_base_url = config["ollama_base_url"]
     llm = ChatOllama(model=model, base_url=ollama_base_url)
 
     def format_docs(docs):

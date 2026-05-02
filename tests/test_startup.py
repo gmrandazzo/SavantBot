@@ -45,6 +45,7 @@ def test_setup_vector_db_missing_model(mock_thread, mock_httpx_client):
             "embedding_model": "bge-m3",
             "default_chat_model": "qwen2.5:latest",
             "redis_url": "redis://localhost:6389",
+            "ollama_base_url": "http://localhost:11434",
             "index_name": "savant-embeddings",
         }
     )
@@ -75,6 +76,7 @@ def test_setup_vector_db_model_present(mock_thread, mock_httpx_client):
             "embedding_model": "bge-m3",
             "default_chat_model": "qwen2.5:latest",
             "redis_url": "redis://localhost:6389",
+            "ollama_base_url": "http://localhost:11434",
             "index_name": "savant-embeddings",
         }
     )
