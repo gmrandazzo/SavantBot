@@ -184,7 +184,7 @@ def setup_vector_db(rebuild=False):
         loader_cls=TextLoader,
         loader_kwargs={"encoding": "utf-8"},
     )
-    
+
     try:
         docs = loader.load()
         logger.info(f"Loaded {len(docs)} documents from {DATA_DIR}")
@@ -194,7 +194,9 @@ def setup_vector_db(rebuild=False):
 
     try:
         if docs:
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=500, chunk_overlap=50
+            )
             splits = text_splitter.split_documents(docs)
             logger.info(f"Split into {len(splits)} chunks")
             vectorstore = RedisVectorStore.from_documents(
@@ -452,11 +454,16 @@ async def chat_stream_endpoint(request: QueryRequest):
 
     async def event_generator():
         safe_message = f"<user_input>\n{request.message}\n</user_input>"
-        
+
         # Get sources first
         try:
             docs = retriever.invoke(request.message)
-            sources = list(set(os.path.basename(doc.metadata.get("source", "Unknown")) for doc in docs))
+            sources = list(
+                set(
+                    os.path.basename(doc.metadata.get("source", "Unknown"))
+                    for doc in docs
+                )
+            )
             source_info = f"\n\nSOURCES: {', '.join(sources)}"
         except Exception as e:
             logger.error(f"Error retrieving sources: {e}")
@@ -464,7 +471,7 @@ async def chat_stream_endpoint(request: QueryRequest):
 
         async for chunk in rag_chain.astream(safe_message):
             yield chunk
-            
+
         if source_info:
             yield source_info
 
@@ -490,17 +497,19 @@ async def chat_endpoint(request: QueryRequest):
     setup_and_retrieval = RunnableParallel(
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
     )
-    
+
     # We also need the raw documents to extract metadata
     try:
         docs = retriever.invoke(request.message)
-        sources = list(set(os.path.basename(doc.metadata.get("source", "Unknown")) for doc in docs))
-        
+        sources = list(
+            set(os.path.basename(doc.metadata.get("source", "Unknown")) for doc in docs)
+        )
+
         rag_chain = setup_and_retrieval | prompt | llm | StrOutputParser()
-        
+
         safe_message = f"<user_input>\n{request.message}\n</user_input>"
         response_text = rag_chain.invoke(safe_message)
-        
+
         return QueryResponse(response=response_text, model_used=model, sources=sources)
     except Exception as e:
         logger.error(f"Chat error: {e}")

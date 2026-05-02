@@ -54,13 +54,13 @@ async def test_handle_message_flow(mock_stream, mock_auth):
     # Mock streaming response
     mock_response = MagicMock()
     mock_response.status_code = 200
-    
+
     async def mock_aiter_text():
         yield "Hi"
         yield "!"
 
     mock_response.aiter_text = mock_aiter_text
-    
+
     # Mock context manager
     mock_stream.return_value.__aenter__.return_value = mock_response
 
@@ -68,7 +68,7 @@ async def test_handle_message_flow(mock_stream, mock_auth):
     update.message.text = "Hello"
     update.message.chat.type = "private"
     update.message.chat.id = 123
-    
+
     # reply_text returns a Message object that has edit_text
     placeholder_message = AsyncMock()
     update.message.reply_text = AsyncMock(return_value=placeholder_message)
@@ -80,6 +80,6 @@ async def test_handle_message_flow(mock_stream, mock_auth):
 
     # Verify the initial reply
     update.message.reply_text.assert_called_with("Thinking...")
-    
+
     # Verify the final edit
     placeholder_message.edit_text.assert_called_with("Hi!")

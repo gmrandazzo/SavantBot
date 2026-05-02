@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import re
@@ -135,13 +134,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
                 async for chunk in response.aiter_text():
                     full_response += chunk
-                    
+
                     # Periodic update to Telegram
                     if time.time() - last_update_time > update_interval:
                         display_text = clean_response(full_response)
                         if display_text:
                             try:
-                                await placeholder_message.edit_text(display_text + "...")
+                                await placeholder_message.edit_text(
+                                    display_text + "..."
+                                )
                                 last_update_time = time.time()
                             except BadRequest as e:
                                 if "Message is not modified" not in str(e):
