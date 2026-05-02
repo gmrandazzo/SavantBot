@@ -1,0 +1,42 @@
+services:
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "${REDIS_PORT:-6390}:6379"
+      - "${REDIS_UI_PORT:-8003}:8001"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    command: savant-api
+    ports:
+      - "${API_PORT:-8125}:8124"
+    env_file:
+      - ${ENV_FILE:-.env}
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    volumes:
+      - ${DATA_VOLUME:-./data}:/app/data
+      - ./src:/app/src
+
+  bot:
+    build: .
+    command: savant-bot
+    env_file:
+      - ${ENV_FILE:-.env}
+    environment:
+      - API_URL=http://api:8124/chat
+    depends_on:
+      - api
+    volumes:
+      - ${DATA_VOLUME:-./data}:/app/data
+      - ./src:/app/src
+
+volumes:
+  redis_data:

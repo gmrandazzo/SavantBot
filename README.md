@@ -52,25 +52,27 @@ docker-compose up --build
 ```
 > **Note**: On the first run, SavantBot will detect if the required models are missing and pull them automatically.
 
-#### Option B: Linux Host Networking (Best for Linux + Host Ollama)
+#### Option B: External Ollama (Predefined)
+Use this if you already have Ollama running on your host or a remote server. This version does **not** start an internal Ollama container.
+```bash
+docker-compose -f docker-compose.external.yml up --build
+```
+- **Local-Host (Mac/Win)**: Set `OLLAMA_BASE_URL=http://host.docker.internal:11434` in your `.env`.
+- **Local-Host (Linux)**: Set `OLLAMA_BASE_URL=http://172.17.0.1:11434` in your `.env`.
+- **Remote**: Set `OLLAMA_BASE_URL=http://your-server-ip:11434` in your `.env`.
+
+#### Option C: Linux Host Networking (Best for Linux + Host Ollama)
 If you are on Linux and Ollama is running on your host, use this mode to bypass Docker bridge networking issues.
 ```bash
 docker-compose -f docker-compose.linux-host.yml up --build
 ```
 - In this mode, set `OLLAMA_BASE_URL=http://localhost:11434` in your `.env`.
 
-#### Option C: Remote or External Configuration
-If you want to use a remote server or an Ollama instance already running on your machine, follow these steps to avoid port conflicts:
-
-1.  **Update `.env`**: Set `OLLAMA_BASE_URL` to your server's IP.
-    - **Remote**: `http://1.2.3.4:11434`
-    - **Linux (Local)**: `http://172.17.0.1:11434` (Standard Docker bridge)
-    - **macOS/Windows**: `http://host.docker.internal:11434`
-2.  **Ensure Ollama is accessible**: Ollama must be listening on all interfaces. Set `OLLAMA_HOST=0.0.0.0` on the machine where Ollama is running.
-3.  **Start without the internal Ollama**: To prevent "Port already allocated" errors, start only the other services:
-    ```bash
-    docker-compose up redis api bot
-    ```
+#### Option D: Remote or Manual Configuration (Legacy Approach)
+You can also use the default `docker-compose.yml` but start only specific services:
+```bash
+docker-compose up redis api bot
+```
 
 ### 👥 Running Multiple Instances
 You can run multiple independent bots on the same machine by using **Docker Project Names** and unique ports.
@@ -88,6 +90,8 @@ You can run multiple independent bots on the same machine by using **Docker Proj
     export ENV_FILE=.env.bot2
     export API_PORT=8126
     export DATA_VOLUME=./data_bot2
+    export REDIS_PORT=6391
+    export REDIS_UI_PORT=8004
     docker-compose -p bot2 up -d --build
     ```
 
