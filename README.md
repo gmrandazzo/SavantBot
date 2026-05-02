@@ -87,13 +87,22 @@ You can run multiple independent bots on the same machine by using **Docker Proj
     ```
 3.  **Launch Instance 2**:
     ```bash
+    # You can set variables in terminal OR directly in .env.bot2
     export ENV_FILE=.env.bot2
-    export API_PORT=8126
     export DATA_VOLUME=./data_bot2
-    export REDIS_PORT=6391
-    export REDIS_UI_PORT=8004
     docker-compose -p bot2 up -d --build
     ```
+
+**Pro Tip**: Instead of using `export` in your terminal, you can simply add these variables directly into your custom `.env` file (e.g., `.env.bot2`) for a cleaner setup:
+```env
+# Inside .env.bot2
+TELEGRAM_TOKEN=...
+API_PORT=8126
+DATA_VOLUME=./data_bot2
+REDIS_PORT=6391
+REDIS_UI_PORT=8004
+REDIS_URL=redis://redis:6379
+```
 
 #### 🧠 Managing the AI Engine (Ollama)
 When running multiple instances, you have two choices for the AI engine:

@@ -15,8 +15,8 @@ services:
     env_file:
       - ${ENV_FILE:-.env}
     environment:
-      - REDIS_URL=redis://redis:6379
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
