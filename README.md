@@ -41,31 +41,29 @@ cp .env.example .env
 - **`TELEGRAM_TOKEN`**: Your bot token from [@BotFather](https://t.me/botfather).
 - **`ALLOWED_USER_IDS`**: (Optional) A comma-separated list of IDs to "seed" the bot on its first run.
 - **`OLLAMA_BASE_URL`**: (Optional) The URL of your Ollama server. Default: `http://ollama:11434`.
-
 ### 4. Run with Docker Compose (Recommended)
 
 SavantBot supports two ways of running with Docker, depending on where your Ollama server is located.
 
-#### Option A: Using an External Ollama (Default)
-Use this if Ollama is already running on your host machine or a remote server.
+#### Option A: Integrated Ollama (Default)
+Use this to run a dedicated Ollama instance inside a Docker container.
 ```bash
 docker-compose up --build
 ```
-- **Local-Host**: Set `OLLAMA_BASE_URL=http://host.docker.internal:11434` in your `.env`.
-- **Remote**: Set `OLLAMA_BASE_URL=http://your-server-ip:11434` in your `.env`.
+> **Note**: On the first run, SavantBot will detect if the required models are missing and pull them automatically.
 
-#### Option B: Integrated Ollama
-Use this to run a dedicated Ollama instance inside a Docker container.
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
-```
-
-#### Option C: Linux Host Networking (Best for Linux + Host Ollama)
+#### Option B: Linux Host Networking (Best for Linux + Host Ollama)
 If you are on Linux and Ollama is running on your host, use this mode to bypass Docker bridge networking issues.
 ```bash
 docker-compose -f docker-compose.linux-host.yml up --build
 ```
 - In this mode, set `OLLAMA_BASE_URL=http://localhost:11434` in your `.env`.
+
+#### Option C: Remote or Manual Configuration
+If you want to use a remote server or a specific IP, set `OLLAMA_BASE_URL` in your `.env` (e.g., `http://192.168.1.50:11434`) and run:
+```bash
+docker-compose up --build
+```
 
 ---
 
