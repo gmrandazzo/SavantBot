@@ -14,9 +14,6 @@ services:
       - "${API_PORT:-8125}:8124"
     env_file:
       - ${ENV_FILE:-.env}
-    environment:
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -30,8 +27,6 @@ services:
     command: savant-bot
     env_file:
       - ${ENV_FILE:-.env}
-    environment:
-      - API_URL=http://api:8124/chat
     depends_on:
       - api
     volumes:
