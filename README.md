@@ -59,11 +59,46 @@ docker-compose -f docker-compose.linux-host.yml up --build
 ```
 - In this mode, set `OLLAMA_BASE_URL=http://localhost:11434` in your `.env`.
 
-#### Option C: Remote or Manual Configuration
-If you want to use a remote server or a specific IP, set `OLLAMA_BASE_URL` in your `.env` (e.g., `http://192.168.1.50:11434`) and run:
-```bash
-docker-compose up --build
-```
+#### Option C: Remote or External Configuration
+If you want to use a remote server or an Ollama instance already running on your machine, follow these steps to avoid port conflicts:
+
+1.  **Update `.env`**: Set `OLLAMA_BASE_URL` to your server's IP.
+    - **Remote**: `http://1.2.3.4:11434`
+    - **Linux (Local)**: `http://172.17.0.1:11434` (Standard Docker bridge)
+    - **macOS/Windows**: `http://host.docker.internal:11434`
+2.  **Ensure Ollama is accessible**: Ollama must be listening on all interfaces. Set `OLLAMA_HOST=0.0.0.0` on the machine where Ollama is running.
+3.  **Start without the internal Ollama**: To prevent "Port already allocated" errors, start only the other services:
+    ```bash
+    docker-compose up redis api bot
+    ```
+
+### 👥 Running Multiple Instances
+You can run multiple independent bots on the same machine by using **Docker Project Names** and unique ports.
+
+1.  **Create separate env files**: (e.g., `.env.bot1` and `.env.bot2`) with different `TELEGRAM_TOKEN`s.
+2.  **Launch Instance 1**:
+    ```bash
+    export ENV_FILE=.env.bot1
+    export API_PORT=8125
+    export DATA_VOLUME=./data_bot1
+    docker-compose -p bot1 up -d --build
+    ```
+3.  **Launch Instance 2**:
+    ```bash
+    export ENV_FILE=.env.bot2
+    export API_PORT=8126
+    export DATA_VOLUME=./data_bot2
+    docker-compose -p bot2 up -d --build
+    ```
+
+#### 🧠 Managing the AI Engine (Ollama)
+When running multiple instances, you have two choices for the AI engine:
+
+*   **Isolated AI (Safe but Heavy)**: Each bot gets its own Ollama container. This uses more RAM but keeps bots totally separate. To do this, ensure each bot has a unique `OLLAMA_PORT` (e.g., `11434`, `11435`).
+*   **Shared AI (Recommended)**: Multiple bots connect to a single Ollama instance. This saves massive amounts of RAM as the model is only loaded once. To do this:
+    1. Start Bot 1 normally.
+    2. For Bot 2+, set `OLLAMA_BASE_URL=http://host.docker.internal:11434` in your `.env` and launch without the ollama service:
+       `docker-compose -p bot2 up -d redis api bot`
 
 ---
 
