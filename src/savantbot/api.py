@@ -243,6 +243,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     model_used: str
+    sources: Optional[list[str]] = None
 
 
 class ConfigUpdate(BaseModel):
@@ -451,8 +452,21 @@ async def chat_stream_endpoint(request: QueryRequest):
 
     async def event_generator():
         safe_message = f"<user_input>\n{request.message}\n</user_input>"
+        
+        # Get sources first
+        try:
+            docs = retriever.invoke(request.message)
+            sources = list(set(os.path.basename(doc.metadata.get("source", "Unknown")) for doc in docs))
+            source_info = f"\n\nSOURCES: {', '.join(sources)}"
+        except Exception as e:
+            logger.error(f"Error retrieving sources: {e}")
+            source_info = ""
+
         async for chunk in rag_chain.astream(safe_message):
             yield chunk
+            
+        if source_info:
+            yield source_info
 
     return StreamingResponse(event_generator(), media_type="text/plain")
 
@@ -470,23 +484,24 @@ async def chat_endpoint(request: QueryRequest):
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    from langchain_core.runnables import Runnable
+    from langchain_core.runnables import RunnableParallel
 
-    rag_chain: Runnable = (
+    # We use RunnableParallel to get both the context (docs) and the answer
+    setup_and_retrieval = RunnableParallel(
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
     )
-
+    
+    # We also need the raw documents to extract metadata
     try:
-        # Prompt Injection Mitigation: Wrap user input in delimiters
-        # Note: This depends on the template using {question}
-        # A more robust fix involves sanitizing request.message or using few-shot
+        docs = retriever.invoke(request.message)
+        sources = list(set(os.path.basename(doc.metadata.get("source", "Unknown")) for doc in docs))
+        
+        rag_chain = setup_and_retrieval | prompt | llm | StrOutputParser()
+        
         safe_message = f"<user_input>\n{request.message}\n</user_input>"
-
         response_text = rag_chain.invoke(safe_message)
-        return QueryResponse(response=response_text, model_used=model)
+        
+        return QueryResponse(response=response_text, model_used=model, sources=sources)
     except Exception as e:
         logger.error(f"Chat error: {e}")
         raise HTTPException(status_code=500, detail=f"Ollama Error: {str(e)}")
