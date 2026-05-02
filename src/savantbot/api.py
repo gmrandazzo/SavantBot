@@ -314,6 +314,27 @@ async def remove_user(user_id: int):
     return {"message": f"User {user_id} removed", "users": config["allowed_user_ids"]}
 
 
+# Bot Management Endpoints
+@app.post("/api/bot/reset-webhook", tags=["Bot Management"])
+async def reset_bot_webhook():
+    """
+    Clears the Telegram webhook and drops pending updates.
+    Use this if you see 'Conflict: terminated by other getUpdates request'.
+    It forces Telegram to allow a new connection from this bot.
+    """
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        raise HTTPException(status_code=500, detail="TELEGRAM_TOKEN not configured")
+
+    url = f"https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=True"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url)
+            return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Telegram API Error: {str(e)}")
+
+
 # Health Endpoints
 @app.get("/api/health/vectorstore", tags=["Health"])
 async def vectorstore_health():
