@@ -55,12 +55,14 @@ async def is_authorized(update: Update) -> bool:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(f"{AUTH_API_URL}/{user.id}")
             if response.status_code == 200:
-                return bool(response.json().get("allowed", False))
+                allowed = bool(response.json().get("allowed", False))
+                logger.info(f"Auth check for {user.id}: {allowed}")
+                return allowed
             else:
-                logger.error(f"Auth API returned status {response.status_code}")
+                logger.error(f"Auth API returned status {response.status_code} for URL {AUTH_API_URL}/{user.id}")
                 return False
     except Exception as e:
-        logger.error(f"Error checking authorization: {e}")
+        logger.error(f"Error checking authorization against {AUTH_API_URL}/{user.id}: {e}")
         # In case of API failure, we fail-closed for security
         return False
 
