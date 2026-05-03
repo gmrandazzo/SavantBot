@@ -81,16 +81,12 @@ You can run multiple independent bots on the same machine by using **Docker Proj
 2.  **Launch Instance 1**:
     ```bash
     export ENV_FILE=.env.bot1
-    export API_PORT=8125
-    export DATA_VOLUME=./data_bot1
-    docker-compose -p bot1 up -d --build
+    docker compose -p bot1 -f docker-compose.external.yml --env-file .env.bot1 up -d --build
     ```
 3.  **Launch Instance 2**:
     ```bash
-    # You can set variables in terminal OR directly in .env.bot2
     export ENV_FILE=.env.bot2
-    export DATA_VOLUME=./data_bot2
-    docker-compose -p bot2 up -d --build
+    docker compose -p bot2 -f docker-compose.external.yml --env-file .env.bot2 up -d --build
     ```
 
 **Pro Tip**: Instead of using `export` in your terminal, you can simply add these variables directly into your custom `.env` file (e.g., `.env.bot2`) for a cleaner setup:

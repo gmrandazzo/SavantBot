@@ -61,8 +61,7 @@ def load_config():
     if os.getenv("OLLAMA_BASE_URL"):
         config["ollama_base_url"] = os.getenv("OLLAMA_BASE_URL")
 
-    # Ensure allowed_user_ids exists and contains integers
-    if "allowed_user_ids" not in config:
+    # Ensure allowed_user_ids exists and contains integers    if "allowed_user_ids" not in config:
         # Bootstrap from env if available
         raw_ids = os.getenv("ALLOWED_USER_IDS", "")
         config["allowed_user_ids"] = [
@@ -84,8 +83,8 @@ def init_defaults():
             "User Input: {question}\n"
             "Response:"
         ),
-        "embedding_model": "bge-m3",
-        "default_chat_model": "qwen2.5:latest",
+        "embedding_model": "qwen3-embedding:4b",
+        "default_chat_model": "qwen3:4b",
         "redis_url": os.getenv("REDIS_URL", "redis://localhost:6389"),
         "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         "index_name": "savant-embeddings",
@@ -182,6 +181,23 @@ def setup_vector_db(rebuild=False):
         model=config["embedding_model"], base_url=ollama_base_url
     )
 
+    # Automatic rebuild detection (Dimension or Model change)
+    try:
+        r = Redis.from_url(config["redis_url"])
+        metadata_key = f"savantbot:meta:{config['index_name']}"
+        stored_model = r.get(metadata_key)
+        if stored_model:
+            stored_model = stored_model.decode("utf-8")
+        
+        if stored_model != config["embedding_model"]:
+            if stored_model:
+                logger.info(f"Embedding model changed from {stored_model} to {config['embedding_model']}. Forcing rebuild.")
+            else:
+                logger.info(f"No model metadata found for index {config['index_name']}. Initializing metadata.")
+            rebuild = True
+    except Exception as e:
+        logger.warning(f"Could not check Redis metadata: {e}")
+
     if rebuild:
         try:
             r = Redis.from_url(config["redis_url"])
@@ -190,8 +206,11 @@ def setup_vector_db(rebuild=False):
                 logger.info("Redis index dropped successfully")
             except Exception as e:
                 logger.info(f"Index drop skipped or failed: {e}")
+            
+            # Update metadata
+            r.set(f"savantbot:meta:{config['index_name']}", config["embedding_model"])
         except Exception as e:
-            logger.error(f"Could not connect to Redis: {e}")
+            logger.error(f"Could not connect to Redis for rebuild: {e}")
 
     # Load both .txt and .pdf files
     docs = []
@@ -280,6 +299,7 @@ class QueryResponse(BaseModel):
 class ConfigUpdate(BaseModel):
     rag_template: Optional[str] = None
     default_chat_model: Optional[str] = None
+    embedding_model: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -303,11 +323,21 @@ async def get_config():
 
 @app.put("/api/config", tags=["Configuration"])
 async def update_config(update: ConfigUpdate):
+    rebuild_needed = False
     if update.rag_template is not None:
         config["rag_template"] = update.rag_template
     if update.default_chat_model is not None:
         config["default_chat_model"] = update.default_chat_model
+    if update.embedding_model is not None:
+        if config.get("embedding_model") != update.embedding_model:
+            config["embedding_model"] = update.embedding_model
+            rebuild_needed = True
+            
     save_config()
+    
+    if rebuild_needed:
+        setup_vector_db(rebuild=True)
+        
     return config
 
 
