@@ -25,6 +25,8 @@ API_BASE_URL = os.getenv("API_URL", "http://0.0.0.0:8124")
 # Ensure API_URL doesn't end with /chat for auth calls
 if API_BASE_URL.endswith("/chat"):
     API_BASE_URL = API_BASE_URL[:-5]
+elif API_BASE_URL.endswith("/chat/"):
+    API_BASE_URL = API_BASE_URL[:-6]
 
 CHAT_API_URL = f"{API_BASE_URL}/chat/stream"
 AUTH_API_URL = f"{API_BASE_URL}/api/auth"
