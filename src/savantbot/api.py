@@ -61,7 +61,7 @@ def load_config():
     if os.getenv("OLLAMA_BASE_URL"):
         config["ollama_base_url"] = os.getenv("OLLAMA_BASE_URL")
 
-    # Ensure allowed_user_ids exists
+    # Ensure allowed_user_ids exists and contains integers
     if "allowed_user_ids" not in config:
         # Bootstrap from env if available
         raw_ids = os.getenv("ALLOWED_USER_IDS", "")
@@ -69,6 +69,9 @@ def load_config():
             int(i.strip()) for i in raw_ids.split(",") if i.strip()
         ]
         save_config()
+    else:
+        # Migrate existing string IDs to integers
+        config["allowed_user_ids"] = [int(uid) for uid in config["allowed_user_ids"]]
 
 
 def init_defaults():
