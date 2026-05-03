@@ -11,13 +11,15 @@ sys.modules["langchain_text_splitters"] = MagicMock()
 sys.modules["langchain_redis"] = MagicMock()
 sys.modules["langchain_ollama"] = MagicMock()
 sys.modules["langchain_core"] = MagicMock()
+sys.modules["langchain_core.document_loaders"] = MagicMock()
 sys.modules["langchain_core.documents"] = MagicMock()
 sys.modules["langchain_core.prompts"] = MagicMock()
 sys.modules["langchain_core.runnables"] = MagicMock()
 sys.modules["langchain_core.output_parsers"] = MagicMock()
 sys.modules["redis"] = MagicMock()
 
-import pytest
+import pytest  # noqa: E402
+
 from savantbot.api import app, config  # noqa: E402
 
 client = TestClient(app)

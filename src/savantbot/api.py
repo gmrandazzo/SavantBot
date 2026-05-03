@@ -10,7 +10,12 @@ import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from langchain_community.chat_models import ChatOllama
-from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
+from langchain_community.document_loaders import (
+    DirectoryLoader,
+    PyPDFLoader,
+    TextLoader,
+)
+from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -55,7 +60,7 @@ def load_config():
         config["redis_url"] = os.getenv("REDIS_URL")
     if os.getenv("OLLAMA_BASE_URL"):
         config["ollama_base_url"] = os.getenv("OLLAMA_BASE_URL")
-    
+
     # Ensure allowed_user_ids exists
     if "allowed_user_ids" not in config:
         # Bootstrap from env if available
@@ -197,17 +202,21 @@ def setup_vector_db(rebuild=False):
         DirectoryLoader(
             DATA_DIR,
             glob="**/*.pdf",
-            loader_cls=PyPDFLoader,
+            loader_cls=PyPDFLoader,  # type: ignore[arg-type]
         ),
     ]
-    
-    for l in loaders:
+
+    for loader_instance in loaders:
         try:
-            loaded_docs = l.load()
+            loaded_docs = loader_instance.load()
             docs.extend(loaded_docs)
-            logger.info(f"Loaded {len(loaded_docs)} documents using {getattr(l.loader_cls, '__name__', 'Loader')}")
+            logger.info(
+                f"Loaded {len(loaded_docs)} documents using {getattr(loader_instance.loader_cls, '__name__', 'Loader')}"
+            )
         except Exception as e:
-            logger.warning(f"Error loading documents with {getattr(l.loader_cls, '__name__', 'Loader')}: {e}")
+            logger.warning(
+                f"Error loading documents with {getattr(loader_instance.loader_cls, '__name__', 'Loader')}: {e}"
+            )
 
     try:
         if docs:
@@ -432,6 +441,7 @@ async def upload_file(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    loader: BaseLoader
     if safe_filename.endswith(".pdf"):
         loader = PyPDFLoader(file_path)
     else:
