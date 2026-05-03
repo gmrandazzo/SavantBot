@@ -24,7 +24,8 @@ dependencies = [
     "python-multipart",
     "httpx",
     "python-telegram-bot",
-    "python-dotenv"
+    "python-dotenv",
+    "pypdf"
 ]
 
 [project.optional-dependencies]

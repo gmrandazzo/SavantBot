@@ -163,17 +163,17 @@ Once running, access the interactive documentation at: `http://localhost:8124/do
 - **`GET /api/health/vectorstore`**: Check the status of the Redis vector index and see the number of indexed records.
 
 ### 📂 Data & Knowledge Management
-- **`POST /api/data/upload`**: Upload a `.txt` file (Multipart/form-data). It is saved to `data/` and indexed.
+- **`POST /api/data/upload`**: Upload a `.txt` or `.pdf` file (Multipart/form-data). It is saved to `data/` and indexed.
 - **`POST /api/data/text`**: Append a snippet of text to a file (default `messages.txt`) and index it.
     - *Payload*: `{"text": "Python is better than Java", "filename": "notes.txt"}`
-- **`POST /api/data/rebuild`**: Wipes the Redis index and re-processes every file inside the `data/` folder. Use this if you manually move files into the folder.
+- **`POST /api/data/rebuild`**: Wipes the Redis index and re-processes every file (`.txt` and `.pdf`) inside the `data/` folder. Use this if you manually move files into the folder.
 
 ---
 
 ## 🎓 Tutorial: Creating Your "Savant"
 
 ### Step 1: Give it Knowledge
-Place any text file containing facts, chat history, or documentation into the `data/` folder, or use the `upload` endpoint.
+Place any `.txt` or `.pdf` file containing facts, chat history, or documentation into the `data/` folder, or use the `upload` endpoint.
 
 ### Step 2: Set the Persona
 Use the `PUT /api/config` endpoint to tell the bot how to behave.

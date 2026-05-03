@@ -10,7 +10,7 @@ import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from langchain_community.chat_models import ChatOllama
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -185,19 +185,29 @@ def setup_vector_db(rebuild=False):
         except Exception as e:
             logger.error(f"Could not connect to Redis: {e}")
 
-    loader = DirectoryLoader(
-        DATA_DIR,
-        glob="**/*.txt",
-        loader_cls=TextLoader,
-        loader_kwargs={"encoding": "utf-8"},
-    )
-
-    try:
-        docs = loader.load()
-        logger.info(f"Loaded {len(docs)} documents from {DATA_DIR}")
-    except Exception as e:
-        logger.warning(f"Error loading documents: {e}")
-        docs = []
+    # Load both .txt and .pdf files
+    docs = []
+    loaders = [
+        DirectoryLoader(
+            DATA_DIR,
+            glob="**/*.txt",
+            loader_cls=TextLoader,
+            loader_kwargs={"encoding": "utf-8"},
+        ),
+        DirectoryLoader(
+            DATA_DIR,
+            glob="**/*.pdf",
+            loader_cls=PyPDFLoader,
+        ),
+    ]
+    
+    for l in loaders:
+        try:
+            loaded_docs = l.load()
+            docs.extend(loaded_docs)
+            logger.info(f"Loaded {len(loaded_docs)} documents using {getattr(l.loader_cls, '__name__', 'Loader')}")
+        except Exception as e:
+            logger.warning(f"Error loading documents with {getattr(l.loader_cls, '__name__', 'Loader')}: {e}")
 
     try:
         if docs:
@@ -408,8 +418,12 @@ async def delete_ollama_model(model_name: str):
 # Data Endpoints
 @app.post("/api/data/upload", tags=["Data & Knowledge"])
 async def upload_file(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.endswith(".txt"):
-        raise HTTPException(status_code=400, detail="Only .txt files are supported")
+    if not file.filename or not (
+        file.filename.endswith(".txt") or file.filename.endswith(".pdf")
+    ):
+        raise HTTPException(
+            status_code=400, detail="Only .txt and .pdf files are supported"
+        )
 
     # Path Traversal Prevention: Sanitize filename
     safe_filename = os.path.basename(file.filename)
@@ -418,7 +432,11 @@ async def upload_file(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    loader = TextLoader(file_path, encoding="utf-8")
+    if safe_filename.endswith(".pdf"):
+        loader = PyPDFLoader(file_path)
+    else:
+        loader = TextLoader(file_path, encoding="utf-8")
+
     docs = loader.load()
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     splits = text_splitter.split_documents(docs)
