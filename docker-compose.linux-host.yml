@@ -1,6 +1,8 @@
 services:
   redis:
     image: redis/redis-stack:latest
+    environment:
+      - REDIS_ARGS=--appendonly yes
     network_mode: host
     # Ports are not needed in host mode as they map directly to host ports
     volumes:

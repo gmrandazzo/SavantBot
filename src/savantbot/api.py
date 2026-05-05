@@ -61,7 +61,7 @@ def load_config():
     if os.getenv("OLLAMA_BASE_URL"):
         config["ollama_base_url"] = os.getenv("OLLAMA_BASE_URL")
 
-    # Ensure allowed_user_ids exists and contains integers    if "allowed_user_ids" not in config:
+        # Ensure allowed_user_ids exists and contains integers    if "allowed_user_ids" not in config:
         # Bootstrap from env if available
         raw_ids = os.getenv("ALLOWED_USER_IDS", "")
         config["allowed_user_ids"] = [
@@ -88,6 +88,7 @@ def init_defaults():
         "redis_url": os.getenv("REDIS_URL", "redis://localhost:6389"),
         "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         "index_name": "savant-embeddings",
+        "top_k": 10,
         "allowed_user_ids": [],
     }
     save_config()
@@ -186,14 +187,20 @@ def setup_vector_db(rebuild=False):
         r = Redis.from_url(config["redis_url"])
         metadata_key = f"savantbot:meta:{config['index_name']}"
         stored_model = r.get(metadata_key)
-        if stored_model:
+        if isinstance(stored_model, bytes):
             stored_model = stored_model.decode("utf-8")
-        
+        elif stored_model is not None:
+            stored_model = str(stored_model)
+
         if stored_model != config["embedding_model"]:
             if stored_model:
-                logger.info(f"Embedding model changed from {stored_model} to {config['embedding_model']}. Forcing rebuild.")
+                logger.info(
+                    f"Embedding model changed from {stored_model} to {config['embedding_model']}. Forcing rebuild."
+                )
             else:
-                logger.info(f"No model metadata found for index {config['index_name']}. Initializing metadata.")
+                logger.info(
+                    f"No model metadata found for index {config['index_name']}. Initializing metadata."
+                )
             rebuild = True
     except Exception as e:
         logger.warning(f"Could not check Redis metadata: {e}")
@@ -206,67 +213,79 @@ def setup_vector_db(rebuild=False):
                 logger.info("Redis index dropped successfully")
             except Exception as e:
                 logger.info(f"Index drop skipped or failed: {e}")
-            
+
             # Update metadata
             r.set(f"savantbot:meta:{config['index_name']}", config["embedding_model"])
         except Exception as e:
             logger.error(f"Could not connect to Redis for rebuild: {e}")
 
-    # Load both .txt and .pdf files
-    docs = []
-    loaders = [
-        DirectoryLoader(
-            DATA_DIR,
-            glob="**/*.txt",
-            loader_cls=TextLoader,
-            loader_kwargs={"encoding": "utf-8"},
-        ),
-        DirectoryLoader(
-            DATA_DIR,
-            glob="**/*.pdf",
-            loader_cls=PyPDFLoader,  # type: ignore[arg-type]
-        ),
-    ]
+        # Load both .txt and .pdf files
+        docs = []
+        loaders = [
+            DirectoryLoader(
+                DATA_DIR,
+                glob="**/*.txt",
+                loader_cls=TextLoader,
+                loader_kwargs={"encoding": "utf-8"},
+            ),
+            DirectoryLoader(
+                DATA_DIR,
+                glob="**/*.pdf",
+                loader_cls=PyPDFLoader,  # type: ignore[arg-type]
+            ),
+        ]
 
-    for loader_instance in loaders:
+        for loader_instance in loaders:
+            loader_name = getattr(loader_instance.loader_cls, "__name__", "Loader")
+            try:
+                loaded_docs = loader_instance.load()
+                docs.extend(loaded_docs)
+                logger.info(f"Loaded {len(loaded_docs)} documents using {loader_name}")
+            except Exception as e:
+                logger.warning(f"Error loading documents with {loader_name}: {e}")
+
         try:
-            loaded_docs = loader_instance.load()
-            docs.extend(loaded_docs)
-            logger.info(
-                f"Loaded {len(loaded_docs)} documents using {getattr(loader_instance.loader_cls, '__name__', 'Loader')}"
-            )
+            if docs:
+                text_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=500, chunk_overlap=50
+                )
+                splits = text_splitter.split_documents(docs)
+                logger.info(f"Split into {len(splits)} chunks")
+                vectorstore = RedisVectorStore.from_documents(
+                    documents=splits,
+                    embedding=embeddings,
+                    redis_url=config["redis_url"],
+                    index_name=config["index_name"],
+                )
+            else:
+                logger.info("No documents found. Initializing empty vector store.")
+                vectorstore = RedisVectorStore(
+                    embeddings=embeddings,
+                    redis_url=config["redis_url"],
+                    index_name=config["index_name"],
+                )
         except Exception as e:
-            logger.warning(
-                f"Error loading documents with {getattr(loader_instance.loader_cls, '__name__', 'Loader')}: {e}"
-            )
-
-    try:
-        if docs:
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=500, chunk_overlap=50
-            )
-            splits = text_splitter.split_documents(docs)
-            logger.info(f"Split into {len(splits)} chunks")
-            vectorstore = RedisVectorStore.from_documents(
-                documents=splits,
-                embedding=embeddings,
-                redis_url=config["redis_url"],
-                index_name=config["index_name"],
-            )
-        else:
-            logger.info("No documents found. Initializing empty vector store.")
+            logger.error(f"CRITICAL: Failed to initialize RedisVectorStore: {e}")
+            # We don't raise here to allow API to at least start, but chat will fail
+            return
+    else:
+        logger.info(
+            "Connecting to existing Redis Vector Store (skipping document load)..."
+        )
+        try:
             vectorstore = RedisVectorStore(
                 embeddings=embeddings,
                 redis_url=config["redis_url"],
                 index_name=config["index_name"],
             )
-    except Exception as e:
-        logger.error(f"CRITICAL: Failed to initialize RedisVectorStore: {e}")
-        # We don't raise here to allow API to at least start, but chat will fail
-        return
+        except Exception as e:
+            logger.error(
+                f"CRITICAL: Failed to connect to existing RedisVectorStore: {e}"
+            )
+            return
 
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-    logger.info("Vector DB setup complete")
+    retriever = vectorstore.as_retriever(search_kwargs={"k": config.get("top_k", 10)})
+    logger.info(f"Vector DB setup complete. Retriever top_k={config.get('top_k', 10)}")
 
 
 @asynccontextmanager
@@ -300,6 +319,7 @@ class ConfigUpdate(BaseModel):
     rag_template: Optional[str] = None
     default_chat_model: Optional[str] = None
     embedding_model: Optional[str] = None
+    top_k: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
@@ -323,6 +343,7 @@ async def get_config():
 
 @app.put("/api/config", tags=["Configuration"])
 async def update_config(update: ConfigUpdate):
+    global retriever
     rebuild_needed = False
     if update.rag_template is not None:
         config["rag_template"] = update.rag_template
@@ -332,12 +353,16 @@ async def update_config(update: ConfigUpdate):
         if config.get("embedding_model") != update.embedding_model:
             config["embedding_model"] = update.embedding_model
             rebuild_needed = True
-            
+    if update.top_k is not None:
+        config["top_k"] = update.top_k
+        if vectorstore and not rebuild_needed:
+            retriever = vectorstore.as_retriever(search_kwargs={"k": config["top_k"]})
+
     save_config()
-    
+
     if rebuild_needed:
         setup_vector_db(rebuild=True)
-        
+
     return config
 
 

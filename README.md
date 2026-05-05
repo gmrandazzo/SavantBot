@@ -58,15 +58,14 @@ Use this if you already have Ollama running on your host or a remote server. Thi
 docker-compose -f docker-compose.external.yml up --build
 ```
 - **Local-Host (Mac/Win)**: Set `OLLAMA_BASE_URL=http://host.docker.internal:11434` in your `.env`.
-- **Local-Host (Linux)**: Set `OLLAMA_BASE_URL=http://172.17.0.1:11434` in your `.env`.
-- **Remote**: Set `OLLAMA_BASE_URL=http://your-server-ip:11434` in your `.env`.
+- **Local-Host (Linux) or Remote**: Set `OLLAMA_BASE_URL=http://your-server-ip:11434 or https://api-url` in your `.env`.
 
 #### Option C: Linux Host Networking (Best for Linux + Host Ollama)
 If you are on Linux and Ollama is running on your host, use this mode to bypass Docker bridge networking issues.
 ```bash
 docker-compose -f docker-compose.linux-host.yml up --build
 ```
-- In this mode, set `OLLAMA_BASE_URL=http://localhost:11434` in your `.env`.
+- In this mode, set `OLLAMA_BASE_URL=http://your-server-ip:11434` in your `.env`.
 
 #### Option D: Remote or Manual Configuration (Legacy Approach)
 You can also use the default `docker-compose.yml` but start only specific services:
@@ -105,9 +104,26 @@ When running multiple instances, you have two choices for the AI engine:
 
 *   **Isolated AI (Safe but Heavy)**: Each bot gets its own Ollama container. This uses more RAM but keeps bots totally separate. To do this, ensure each bot has a unique `OLLAMA_PORT` (e.g., `11434`, `11435`).
 *   **Shared AI (Recommended)**: Multiple bots connect to a single Ollama instance. This saves massive amounts of RAM as the model is only loaded once. To do this:
-    1. Start Bot 1 normally.
-    2. For Bot 2+, set `OLLAMA_BASE_URL=http://host.docker.internal:11434` in your `.env` and launch without the ollama service:
-       `docker-compose -p bot2 up -d redis api bot`
+    1. Start Ollama in a separated container and make sure to be accessible at 0.0.0.0:11434
+    2. For Bot 1, 2+, set `OLLAMA_BASE_URL=http://your-local-ip:11434` in your `.env` and launch without the ollama service:
+       `docker-compose -p bot2 -f docker-compose.external.yaml up -d redis api bot`
+
+Example .env for bot2
+```
+# Telegram Bot Token (Get this from @BotFather)
+TELEGRAM_TOKEN=...
+
+# Backend API URL
+API_PORT=8126
+REDIS_PORT=6392
+REDIS_UI_PORT=8005
+API_URL=http://your-host-ip:8126
+REDIS_URL=redis://redis:6379
+DATA_VOLUME=./data_bot2
+
+ALLOWED_USER_IDS=..
+OLLAMA_BASE_URL=http://your-host-ip:11434
+```
 
 ---
 
@@ -126,6 +142,7 @@ SavantBot uses a `config.json` file for persistent settings. If it doesn't exist
 | `rag_template` | The prompt used by the AI. Must include `{context}` and `{question}` placeholders. |
 | `embedding_model` | The Ollama model used to turn text into vectors (default: `bge-m3`). |
 | `default_chat_model` | The default Ollama model for generating responses (default: `qwen2.5:latest`). |
+| `top_k` | The number of document chunks to retrieve for context (default: `10`). |
 | `redis_url` | The connection string for the Redis Vector Database. |
 | `index_name` | The internal name of the search index inside Redis. |
 | `allowed_user_ids` | A JSON list of numeric Telegram User IDs authorized to use the bot. |
@@ -180,3 +197,25 @@ If you didn't use the `.env` file, go to `/docs`, use `POST /api/users`, and ent
 
 ### Step 4: Chat!
 Message your bot on Telegram. It will retrieve the most relevant facts from your files and respond using the persona you defined.
+
+---
+
+## 🔧 Troubleshooting
+
+### "Unauthorized" Error on Telegram (Linux Docker Hosts)
+**Symptom**: You send `/start` to the bot, it replies `⛔ Unauthorized`, and the `bot` container logs show: `Error checking authorization against http://api:8124/api/auth/... : All connection attempts failed`.
+
+**Cause**: By default, the bot container tries to talk to the API container via Docker's internal bridge network (using the hostname `http://api:8124`). On some Linux hosts with strict firewall/iptables rules (like `ufw`), this internal container-to-container traffic gets blocked.
+
+**Fix**: Tell the bot to bypass the internal Docker network and route traffic through your host machine's IP address using the *external* mapped port.
+1. Find your host machine's IP address (e.g., `192.168.1.28`).
+2. Check the external API port in your `.env` file (e.g., `API_PORT=8126`).
+3. Update `API_URL` in your `.env` file to use your machine's IP and external port:
+   ```env
+   API_URL=http://192.168.1.28:8126
+   ```
+4. Recreate the containers so the bot picks up the new URL:
+   ```bash
+   docker-compose down
+   docker-compose up -d
+   ```

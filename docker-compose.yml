@@ -1,6 +1,8 @@
 services:
   redis:
     image: redis/redis-stack:latest
+    environment:
+      - REDIS_ARGS=--appendonly yes
     ports:
       - "${REDIS_PORT:-6390}:6379"
       - "${REDIS_UI_PORT:-8003}:8001"

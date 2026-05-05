@@ -59,10 +59,14 @@ async def is_authorized(update: Update) -> bool:
                 logger.info(f"Auth check for {user.id}: {allowed}")
                 return allowed
             else:
-                logger.error(f"Auth API returned status {response.status_code} for URL {AUTH_API_URL}/{user.id}")
+                logger.error(
+                    f"Auth API returned status {response.status_code} for URL {AUTH_API_URL}/{user.id}"
+                )
                 return False
     except Exception as e:
-        logger.error(f"Error checking authorization against {AUTH_API_URL}/{user.id}: {e}")
+        logger.error(
+            f"Error checking authorization against {AUTH_API_URL}/{user.id}: {e}"
+        )
         # In case of API failure, we fail-closed for security
         return False
 

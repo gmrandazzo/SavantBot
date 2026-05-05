@@ -1,7 +1,8 @@
 {
   "rag_template": "You are an AI roleplaying as a specific person based on their message history.\n\nPast messages:\n{context}\n\nUser Input: {question}\nResponse:",
-  "embedding_model": "bge-m3",
-  "default_chat_model": "qwen2.5:latest",
+  "embedding_model": "qwen3-embedding:4b",
+  "default_chat_model": "qwen3:4b",
+  "top_k": 10,
   "redis_url": "redis://redis:6379",
   "index_name": "savant-embeddings",
   "allowed_user_ids": [
