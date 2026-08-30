@@ -2,8 +2,16 @@
 
 SavantBot is a powerful, flexible Retrieval-Augmented Generation (RAG) system. It combines a **FastAPI backend** for document processing and AI logic with a **Telegram bot frontend** for seamless interaction.
 
+## 🤔 Why SavantBot?
+
+I built SavantBot because I wanted a private, self-hosted alternative to cloud chatbots that I could wire into Telegram. It is a FastAPI backend that runs a RAG pipeline over local files using Ollama + Redis Vector Store, plus a Telegram bot frontend.
+
+The whole thing runs via Docker Compose. You drop `.txt` or `.pdf` files into a folder, configure the prompt via the API, and chat with the bot. It pulls missing Ollama models automatically on first run.
+
+It is still early: auth is basic (token-based), there is no web UI, and I would particularly appreciate feedback on the architecture, the RAG chain setup, and any obvious security gaps.
+
 ## 🚀 Key Features
-- **General-Purpose RAG**: Upload any `.txt` files to give your bot specialized knowledge.
+- **General-Purpose RAG**: Upload any `.txt` or `.pdf` files to give your bot specialized knowledge.
 - **Dynamic Configuration**: Change the bot's "style" or "persona" in real-time via API.
 - **Secure & Live Auth**: Manage allowed users via API without restarting the bot.
 - **Persistent Storage**: All knowledge, users, and configurations survive restarts via `config.json` and the `data/` folder.
