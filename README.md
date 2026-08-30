@@ -75,6 +75,7 @@ docker-compose up redis api bot
 
 ### 👥 Running Multiple Instances
 You can run multiple independent bots on the same machine by using **Docker Project Names** and unique ports.
+For a complete step-by-step tutorial on running multiple bots with one shared Ollama instance, see [`RUNNING_MULTIPLE_BOTS.md`](RUNNING_MULTIPLE_BOTS.md).
 
 1.  **Create separate env files**: (e.g., `.env.bot1` and `.env.bot2`) with different `TELEGRAM_TOKEN`s.
 2.  **Launch Instance 1**:
@@ -103,7 +104,7 @@ REDIS_URL=redis://redis:6379
 When running multiple instances, you have two choices for the AI engine:
 
 *   **Isolated AI (Safe but Heavy)**: Each bot gets its own Ollama container. This uses more RAM but keeps bots totally separate. To do this, ensure each bot has a unique `OLLAMA_PORT` (e.g., `11434`, `11435`).
-*   **Shared AI (Recommended)**: Multiple bots connect to a single Ollama instance. This saves massive amounts of RAM as the model is only loaded once. To do this:
+*   **Shared AI (Recommended)**: Multiple bots connect to a single Ollama instance. This saves massive amounts of RAM as the model is only loaded once. See [`RUNNING_MULTIPLE_BOTS.md`](RUNNING_MULTIPLE_BOTS.md) for a full tutorial. To do this:
     1. Start Ollama in a separated container and make sure to be accessible at 0.0.0.0:11434
     2. For Bot 1, 2+, set `OLLAMA_BASE_URL=http://your-local-ip:11434` in your `.env` and launch without the ollama service:
        `docker-compose -p bot2 -f docker-compose.external.yaml up -d redis api bot`
