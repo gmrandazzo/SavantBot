@@ -61,7 +61,8 @@ def load_config():
     if os.getenv("OLLAMA_BASE_URL"):
         config["ollama_base_url"] = os.getenv("OLLAMA_BASE_URL")
 
-        # Ensure allowed_user_ids exists and contains integers    if "allowed_user_ids" not in config:
+    # Ensure allowed_user_ids exists and contains integers
+    if "allowed_user_ids" not in config:
         # Bootstrap from env if available
         raw_ids = os.getenv("ALLOWED_USER_IDS", "")
         config["allowed_user_ids"] = [
@@ -70,7 +71,7 @@ def load_config():
         save_config()
     else:
         # Migrate existing string IDs to integers
-        config["allowed_user_ids"] = [int(uid) for uid in config["allowed_user_ids"]]
+        config["allowed_user_ids"] = [int(uid) for uid in config["allowed_user_ids"] if str(uid).strip()]
 
 
 def init_defaults():
@@ -355,7 +356,12 @@ async def update_config(update: ConfigUpdate):
             rebuild_needed = True
     if update.top_k is not None:
         config["top_k"] = update.top_k
-        if vectorstore and not rebuild_needed:
+        if vectorstore is None:
+            logger.warning(
+                "top_k updated but vector store is not initialized yet; "
+                "the new value will take effect on the next startup."
+            )
+        elif not rebuild_needed:
             retriever = vectorstore.as_retriever(search_kwargs={"k": config["top_k"]})
 
     save_config()

@@ -23,6 +23,7 @@ sys.modules["redis"] = MagicMock()
 from fastapi.testclient import TestClient  # noqa: E402
 
 # Now we can import the app
+import savantbot.api as api  # noqa: E402
 from savantbot.api import CONFIG_PATH, DATA_DIR, app, config  # noqa: E402
 
 client = TestClient(app)
@@ -99,3 +100,11 @@ def test_user_management():
     response = client.delete("/api/users/12345")
     assert response.status_code == 200
     assert 12345 not in response.json()["users"]
+
+
+def test_update_top_k_when_vectorstore_uninitialized():
+    """Updating top_k before vector store is ready must not crash."""
+    api.vectorstore = None
+    response = client.put("/api/config", json={"top_k": 5})
+    assert response.status_code == 200
+    assert response.json()["top_k"] == 5

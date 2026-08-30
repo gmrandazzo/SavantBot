@@ -6,7 +6,6 @@
   "redis_url": "redis://redis:6379",
   "index_name": "savant-embeddings",
   "allowed_user_ids": [
-    some_user_id1,
-    some_user_id2,
+    12345678
   ]
 }
