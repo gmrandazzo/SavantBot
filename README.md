@@ -219,3 +219,9 @@ Message your bot on Telegram. It will retrieve the most relevant facts from your
    docker-compose down
    docker-compose up -d
    ```
+
+---
+
+## 🤖 AI Full Disclosure
+
+This software is developed with strong assistance from Kimi 2.7 and Gemini 3.6 flash and with humans leading the ideas, testing, and debugging. We say this openly because it shaped how the project was built. If you are not happy with AI-developed code, this software is not for you.
