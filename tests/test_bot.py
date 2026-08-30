@@ -1,7 +1,11 @@
+import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# Set a test API token so the bot sends an Authorization header to the API.
+os.environ["API_TOKEN"] = "test-token"
 
 # Mock telegram
 sys.modules["telegram"] = MagicMock()
@@ -9,7 +13,7 @@ sys.modules["telegram.ext"] = MagicMock()
 sys.modules["telegram.constants"] = MagicMock()
 sys.modules["telegram.error"] = MagicMock()
 
-from savantbot.bot import clean_response, handle_message, is_authorized  # noqa: E402
+from savantbot.bot import API_HEADERS, clean_response, handle_message, is_authorized  # noqa: E402
 
 
 def test_clean_response():
@@ -80,6 +84,12 @@ async def test_handle_message_flow(mock_stream, mock_auth):
 
     # Verify the initial reply
     update.message.reply_text.assert_called_with("Thinking...")
+
+    # Verify the chat request included the API token header
+    mock_stream.assert_called_once()
+    call_kwargs = mock_stream.call_args.kwargs
+    assert call_kwargs["headers"] == API_HEADERS
+    assert call_kwargs["headers"]["Authorization"] == "Bearer test-token"
 
     # Verify the final edit
     placeholder_message.edit_text.assert_called_with("Hi!")

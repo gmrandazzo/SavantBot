@@ -1,7 +1,11 @@
+import os
 import sys
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
+
+# Set a test API token before importing the app so management endpoints are reachable.
+os.environ["API_TOKEN"] = "test-token"
 
 # Mock LangChain
 sys.modules["langchain_community"] = MagicMock()
@@ -23,6 +27,7 @@ import pytest  # noqa: E402
 from savantbot.api import app, config  # noqa: E402
 
 client = TestClient(app)
+AUTH_HEADERS = {"Authorization": "Bearer test-token"}
 
 
 @pytest.fixture(autouse=True)
@@ -36,14 +41,16 @@ def test_list_ollama_models(mock_get):
     mock_get.return_value = MagicMock(status_code=200)
     mock_get.return_value.json.return_value = {"models": [{"name": "test-model"}]}
 
-    response = client.get("/api/ollama/models")
+    response = client.get("/api/ollama/models", headers=AUTH_HEADERS)
     assert response.status_code == 200
     assert response.json()["models"][0]["name"] == "test-model"
 
 
 @patch("savantbot.api.pull_models_background")
 def test_pull_ollama_model(mock_pull):
-    response = client.post("/api/ollama/pull", json={"model_name": "new-model"})
+    response = client.post(
+        "/api/ollama/pull", json={"model_name": "new-model"}, headers=AUTH_HEADERS
+    )
     assert response.status_code == 200
     assert "Started pulling" in response.json()["message"]
     mock_pull.assert_called_once_with(["new-model"], "http://localhost:11434")
@@ -53,7 +60,7 @@ def test_pull_ollama_model(mock_pull):
 def test_delete_ollama_model(mock_request):
     mock_request.return_value = MagicMock(status_code=200)
 
-    response = client.delete("/api/ollama/models/old-model")
+    response = client.delete("/api/ollama/models/old-model", headers=AUTH_HEADERS)
     assert response.status_code == 200
     assert "deleted successfully" in response.json()["message"]
 

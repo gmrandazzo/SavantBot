@@ -20,6 +20,7 @@ load_dotenv()
 
 # --- CONFIGURATION ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+API_TOKEN = os.getenv("API_TOKEN")
 API_BASE_URL = os.getenv("API_URL", "http://0.0.0.0:8124")
 
 # Ensure API_URL doesn't end with /chat for auth calls
@@ -30,6 +31,10 @@ elif API_BASE_URL.endswith("/chat/"):
 
 CHAT_API_URL = f"{API_BASE_URL}/chat/stream"
 AUTH_API_URL = f"{API_BASE_URL}/api/auth"
+
+API_HEADERS = {}
+if API_TOKEN:
+    API_HEADERS["Authorization"] = f"Bearer {API_TOKEN}"
 
 # Logging
 logging.basicConfig(
@@ -131,7 +136,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream(
-                "POST", CHAT_API_URL, json={"message": user_text}
+                "POST", CHAT_API_URL, json={"message": user_text}, headers=API_HEADERS
             ) as response:
                 if response.status_code != 200:
                     logger.error(f"API Error: {response.status_code}")
