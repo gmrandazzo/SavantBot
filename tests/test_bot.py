@@ -13,7 +13,12 @@ sys.modules["telegram.ext"] = MagicMock()
 sys.modules["telegram.constants"] = MagicMock()
 sys.modules["telegram.error"] = MagicMock()
 
-from savantbot.bot import API_HEADERS, clean_response, handle_message, is_authorized  # noqa: E402
+from savantbot.bot import (  # noqa: E402
+    API_HEADERS,
+    clean_response,
+    handle_message,
+    is_authorized,
+)
 
 
 def test_clean_response():

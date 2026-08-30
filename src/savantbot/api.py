@@ -78,7 +78,9 @@ def load_config():
         save_config()
     else:
         # Migrate existing string IDs to integers
-        config["allowed_user_ids"] = [int(uid) for uid in config["allowed_user_ids"] if str(uid).strip()]
+        config["allowed_user_ids"] = [
+            int(uid) for uid in config["allowed_user_ids"] if str(uid).strip()
+        ]
 
 
 def init_defaults():
@@ -436,7 +438,11 @@ async def add_user(user: UserUpdate):
     }
 
 
-@app.delete("/api/users/{user_id}", tags=["User Management"], dependencies=[Depends(require_auth)])
+@app.delete(
+    "/api/users/{user_id}",
+    tags=["User Management"],
+    dependencies=[Depends(require_auth)],
+)
 async def remove_user(user_id: int):
     if user_id in config["allowed_user_ids"]:
         config["allowed_user_ids"].remove(user_id)
@@ -445,7 +451,11 @@ async def remove_user(user_id: int):
 
 
 # Bot Management Endpoints
-@app.post("/api/bot/reset-webhook", tags=["Bot Management"], dependencies=[Depends(require_auth)])
+@app.post(
+    "/api/bot/reset-webhook",
+    tags=["Bot Management"],
+    dependencies=[Depends(require_auth)],
+)
 async def reset_bot_webhook():
     """
     Clears the Telegram webhook and drops pending updates.
@@ -490,7 +500,11 @@ async def vectorstore_health():
 
 
 # Ollama Management
-@app.get("/api/ollama/models", tags=["Ollama Management"], dependencies=[Depends(require_auth)])
+@app.get(
+    "/api/ollama/models",
+    tags=["Ollama Management"],
+    dependencies=[Depends(require_auth)],
+)
 async def list_ollama_models():
     ollama_base_url = config.get("ollama_base_url", "http://localhost:11434")
     try:
@@ -501,7 +515,9 @@ async def list_ollama_models():
         raise HTTPException(status_code=500, detail=f"Ollama Error: {str(e)}")
 
 
-@app.post("/api/ollama/pull", tags=["Ollama Management"], dependencies=[Depends(require_auth)])
+@app.post(
+    "/api/ollama/pull", tags=["Ollama Management"], dependencies=[Depends(require_auth)]
+)
 async def pull_ollama_model(request: ModelActionRequest):
     ollama_base_url = config.get("ollama_base_url", "http://localhost:11434")
     # We use a background thread for pulling to avoid blocking the API
@@ -511,7 +527,11 @@ async def pull_ollama_model(request: ModelActionRequest):
     }
 
 
-@app.delete("/api/ollama/models/{model_name}", tags=["Ollama Management"], dependencies=[Depends(require_auth)])
+@app.delete(
+    "/api/ollama/models/{model_name}",
+    tags=["Ollama Management"],
+    dependencies=[Depends(require_auth)],
+)
 async def delete_ollama_model(model_name: str):
     ollama_base_url = config.get("ollama_base_url", "http://localhost:11434")
     try:
@@ -529,7 +549,9 @@ async def delete_ollama_model(model_name: str):
 
 
 # Data Endpoints
-@app.post("/api/data/upload", tags=["Data & Knowledge"], dependencies=[Depends(require_auth)])
+@app.post(
+    "/api/data/upload", tags=["Data & Knowledge"], dependencies=[Depends(require_auth)]
+)
 async def upload_file(file: UploadFile = File(...)):
     if not file.filename or not (
         file.filename.endswith(".txt") or file.filename.endswith(".pdf")
@@ -563,7 +585,9 @@ async def upload_file(file: UploadFile = File(...)):
     return {"message": f"File {safe_filename} uploaded and indexed successfully"}
 
 
-@app.post("/api/data/text", tags=["Data & Knowledge"], dependencies=[Depends(require_auth)])
+@app.post(
+    "/api/data/text", tags=["Data & Knowledge"], dependencies=[Depends(require_auth)]
+)
 async def append_text(request: TextAppendRequest):
     # Path Traversal Prevention: Sanitize filename
     safe_filename = os.path.basename(request.filename)
@@ -584,7 +608,9 @@ async def append_text(request: TextAppendRequest):
     return {"message": "Text appended and indexed successfully"}
 
 
-@app.post("/api/data/rebuild", tags=["Data & Knowledge"], dependencies=[Depends(require_auth)])
+@app.post(
+    "/api/data/rebuild", tags=["Data & Knowledge"], dependencies=[Depends(require_auth)]
+)
 async def rebuild_db():
     setup_vector_db(rebuild=True)
     return {"message": "Database rebuild complete"}
@@ -645,7 +671,12 @@ async def chat_stream_endpoint(request: QueryRequest):
     return StreamingResponse(event_generator(), media_type="text/plain")
 
 
-@app.post("/chat", response_model=QueryResponse, tags=["Chat"], dependencies=[Depends(require_auth)])
+@app.post(
+    "/chat",
+    response_model=QueryResponse,
+    tags=["Chat"],
+    dependencies=[Depends(require_auth)],
+)
 async def chat_endpoint(request: QueryRequest):
     if not retriever:
         raise HTTPException(status_code=500, detail="Retriever not initialized")

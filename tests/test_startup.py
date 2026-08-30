@@ -22,7 +22,13 @@ sys.modules["langchain_core.output_parsers"] = MagicMock()
 sys.modules["redis"] = MagicMock()
 
 import savantbot.api as api  # noqa: E402
-from savantbot.api import CONFIG_PATH, DATA_DIR, config, load_config, setup_vector_db  # noqa: E402
+from savantbot.api import (  # noqa: E402
+    CONFIG_PATH,
+    DATA_DIR,
+    config,
+    load_config,
+    setup_vector_db,
+)
 
 
 @pytest.fixture(autouse=True)
